@@ -94,8 +94,8 @@ if __name__ == '__main__':
         transforms.Lambda(lambda the_img: RGB2GRAY(the_img)),  # Convert to binary images of channel = 1
         transforms.ToTensor(),
     ])
-    train_dataset = ImageFolder(root='./mnist/MNIST_image/raw/train', transform=trans)
-    test_dataset = ImageFolder(root='./mnist/MNIST_image/raw/test', transform=trans)
+    train_dataset = ImageFolder(root='path_train', transform=trans)
+    test_dataset = ImageFolder(root='path_test', transform=trans)
     train_dataloader = Data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     test_dataloader = Data.DataLoader(test_dataset, batch_size=2000, shuffle=True, drop_last=True)
 
