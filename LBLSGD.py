@@ -1,9 +1,15 @@
 import torch
 
+
 class LBL_SGD_Function(torch.autograd.Function):
+    """
+    LBL_SGD_Function is like gradient checkpoint, we rewrote some
+    of it, and it also works very similar to gradient checkpoint
+    """
     input_data = None
     COUNT = 0
     lr = None
+    cuda_state = None
     @staticmethod
     def set_data(data):
         LBL_SGD_Function.input_data = data
@@ -11,6 +17,10 @@ class LBL_SGD_Function(torch.autograd.Function):
     @staticmethod
     def set_lr(lr):
         LBL_SGD_Function.lr = lr
+
+    @staticmethod
+    def set_state(cuda_state):
+        LBL_SGD_Function.cuda_state = cuda_state
 
     @staticmethod
     def forward(ctx, pre_functions, run_function, preserve_rng_state, *args):
@@ -23,7 +33,7 @@ class LBL_SGD_Function(torch.autograd.Function):
         :return: output->tensor
         """
         ctx.pre_functions = pre_functions
-        ctx.run_function = run_function  # 重点1 run_function传递的可能是引用
+        ctx.run_function = run_function
 
         outputs = args[0]
         with torch.no_grad():
@@ -34,7 +44,8 @@ class LBL_SGD_Function(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *args):
-        inputs = LBL_SGD_Function.input_data
+        torch.cuda.set_rng_state(LBL_SGD_Function.cuda_state)
+        inputs = LBL_SGD_Function.input_data.clone()
         with torch.no_grad():
             if ctx.pre_functions:
                 for f in ctx.pre_functions:
@@ -57,13 +68,20 @@ class LBL_SGD_Function(torch.autograd.Function):
                 f.bias.data = f.bias.data - LBL_SGD_Function.lr * f.bias.grad
                 f.bias.grad.zero_()
 
-        grads = inputs.grad.clone()
-        del args
-        del inputs
+        grads = inputs.grad
         return (None, None, None) + (grads,)
 
 
 def LBLSGD(pre_functions, run_function, *args, use_reentrant: bool = True, **kwargs):
+    """
+
+    :param pre_functions: nn.ModuleList
+    :param run_function: nn.ModuleList
+    :param args: inpuit->tensor
+    :param use_reentrant:
+    :param kwargs:
+    :return:
+    """
     preserve = kwargs.pop('preserve_rng_state', True)
     if kwargs and use_reentrant:
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
